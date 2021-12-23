@@ -3,15 +3,21 @@ pipeline {
 
     stages {
         stage('Copy files') {
-            sh 'scrtips/copy.sh'
+            steps {
+                sh 'scrtips/copy.sh'
+            }
         }
         
         stage('Archive files') {
-            sh 'scrtips/archive.sh'
+            steps {
+                sh 'scrtips/archive.sh'
+            }
         }
         
         stage('Upload files') {
-            sh 'scrtips/upload.sh'
+            steps {
+                sh 'scrtips/upload.sh'
+            }
         }
     }
 }
