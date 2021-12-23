@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -e
+set -ex
 
-VERSION="${git describe --tags 2>&1}"
+VERSION="$(git describe --tags 2>&1 || true)"
 
 TMP_DIR="${TMP_DIR:=_build}"
 
@@ -19,7 +19,7 @@ base_copy() {
 
     [ -d $dst ] || mkdir $dst
 
-    echo "$VERSION" > $dst
+    echo "$VERSION" > $dst/VERSION
 
     cp LICENSE $dst
 
