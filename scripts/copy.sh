@@ -2,7 +2,7 @@
 
 set -ex
 
-VERSION="$(git describe --tags 2>&1 || true)"
+VERSION="$(git describe --tags 2>/dev/null || true)"
 
 TMP_DIR="${TMP_DIR:=_build}"
 
