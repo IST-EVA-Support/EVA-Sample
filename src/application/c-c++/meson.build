@@ -1,0 +1,4 @@
+# application projects
+#basic_pipeline = subproject('generate-a-basic-pipeline')
+
+subdir('generate-a-basic-pipeline')
