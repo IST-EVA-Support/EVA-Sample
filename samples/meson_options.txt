@@ -1,5 +1,0 @@
-option('opencv_dir', type : 'string', value: '/usr',
-       description : 'OpenCV install root directory')
-
-option('eva_root', type : 'string', value: '/opt/adlink/eva',
-       description : 'EVA install root directory')
