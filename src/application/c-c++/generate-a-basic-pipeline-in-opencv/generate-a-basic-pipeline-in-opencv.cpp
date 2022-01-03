@@ -1,3 +1,13 @@
+// *******************************************************************************************************************************
+// Required know in advance gstreamer plugin: appsink/appsrc
+// This sample shows how to generate a simple pipeline using OpenCV Wrapper:VideoCapture and retrieve the video data in application.
+// After retrieve the video data, use OpenCV Wrapper:VideoWriter to push the video data back to another pipeline.
+// This sample illustrates the appsink with VideoCapture and appsrc with VideoWriter.
+// OpenCV provide this Wrapper for gstreamer user to quick establish the pipeline, but this build feature is disabled when build the
+// OpenCV. If user is going to use OpenCV wrapper for gstreamer, this build feature is required enabled in configuring before the 
+// OpenCV library is build.
+// *******************************************************************************************************************************
+
 #include "opencv2/opencv.hpp"
 #include <iostream>
 #include <stdio.h>

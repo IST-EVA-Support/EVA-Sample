@@ -1,5 +1,5 @@
 // *******************************************************************************************************************************
-// This sample show how to generate a simple pipeline equivalent to: 
+// This sample shows how to generate a simple pipeline equivalent to: 
 // gst-launch-1.0 videotestsrc pattern=18 ! autovideosink
 // Besides the establish the pipeline, this example also illustrate how to handle the 2 return messages.
 // More messages return could be found in: https://gstreamer.freedesktop.org/documentation/gstreamer/gstmessage.html?gi-language=c
