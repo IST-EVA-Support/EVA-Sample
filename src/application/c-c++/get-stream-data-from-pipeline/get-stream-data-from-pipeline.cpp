@@ -156,7 +156,7 @@ int main(int, char**)
 #ifdef _WIN32
     writer.open("appsrc ! videoconvert ! video/x-raw, format=BGR, width=640, height=480, framerate=30/1 ! videoconvert ! d3dvideosink sync=false", CAP_GSTREAMER, 0, 30, cv::Size(640, 480), true);
 #else
-    writer.open("appsrc ! videoconvert ! video/x-raw, format=BGR, width=640, height=480, framerate=30/1 ! clockoverlay ! ximagesink sync=false", CAP_GSTREAMER, 0, 30, cv::Size(640, 480), true);
+    writer.open("appsrc ! videoconvert ! video/x-raw, format=BGR, width=640, height=480, framerate=30/1 ! videoconvert ! ximagesink sync=false", CAP_GSTREAMER, 0, 30, cv::Size(640, 480), true);
 #endif
 
     if (!writer.isOpened()) 
