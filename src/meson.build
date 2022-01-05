@@ -1,6 +1,9 @@
 # application projects
 #basic_pipeline = subproject('application/c-c++/generate-a-basic-pipeline')
 
+lib_pthread = cc.find_library('pthread', required: false)
+pthread_dep = declare_dependency(dependencies : lib_pthread.found() ? lib_pthread : [])
+
 ## Declare OpenCV4 dependency
 opencv_dir = get_option('opencv_dir')
 libs_cv = []
