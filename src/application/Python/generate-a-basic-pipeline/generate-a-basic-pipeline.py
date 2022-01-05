@@ -13,8 +13,6 @@ from gi.repository import Gst, GObject, GLib
 
 def on_message(bus: Gst.Bus, message: Gst.Message, loop: GObject.MainLoop):
     mtype = message.type
-
-    print('in on_message')
     
     if mtype == Gst.MessageType.EOS:
         print("End of stream")
