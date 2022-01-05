@@ -71,6 +71,7 @@ static GstFlowReturn new_sample(GstElement *sink, gpointer *udata)
                 cout << "Label = " << frame_info.class_results[i].label << endl;
                 cout << "output =  " << frame_info.class_results[i].output << endl;
                 cout << "Prob =  " << frame_info.class_results[i].prob << endl;
+                cout << "=============================================\n";
             }
         }
         

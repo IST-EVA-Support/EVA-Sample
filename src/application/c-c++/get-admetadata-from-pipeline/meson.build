@@ -14,4 +14,5 @@ gstmeta_dep = declare_dependency(
 )
 #### End to declare gstmeta dependency
 
+subdir('classification')
 subdir('object-detection')
