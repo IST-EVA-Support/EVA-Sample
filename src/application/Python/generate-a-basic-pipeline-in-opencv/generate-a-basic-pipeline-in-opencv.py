@@ -18,7 +18,7 @@ if __name__ == '__main__':
     elif sys.platform == 'linux':
         cap = cv2.VideoCapture("v4l2src ! videoscale ! video/x-raw, width=1024, height=768 ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     else:
-        print("[VideoCapture] Do not support this system platform.");
+        print("[VideoCapture] Do not support this system platform.")
         sys.exit()
 
     if cap.isOpened() == False:
@@ -45,8 +45,8 @@ if __name__ == '__main__':
             print("ERROR! blank frame grabbed")
             break
         
-        resize_frame = cv2.resize(frame,(640, 480));
-        writer.write(resize_frame);
+        resize_frame = cv2.resize(frame,(640, 480))
+        writer.write(resize_frame)
         cv2.imshow('OpenCV Live in Python', frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
