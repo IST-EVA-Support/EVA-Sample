@@ -17,8 +17,10 @@ if [ -z "VERSION" ]; then
     BASE_NAME=EVA_IDE
 else
     BASE_NAME=EVA_IDE_${VERSION}
+    echo -en ${VERSION} > latest_version
 fi
 
 curl -T EVA-Samples_x86_64-linux-gnu.run ${SAMBA_FULL_URL}/${BASE_NAME}_x86_64-linux-gnu.run
 curl -T EVA-Samples_aarch64-linux-gnu.run ${SAMBA_FULL_URL}/${BASE_NAME}_aarch64-linux-gnu.run
 curl -T EVA-Samples_x86_64-windows.zip ${SAMBA_FULL_URL}/${BASE_NAME}_x86_64-windows.zip
+curl -T latest_version ${SAMBA_FULL_URL}/latest_version
