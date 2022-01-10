@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -ex
+
+VERSION="$(git describe --tags 2>/dev/null || true)"
+
 SAMBA_USERNAME="${SAMBA_USERNAME:=eva}"
 SAMBA_PASSWORD="${SAMBA_PASSWORD:=eva}"
 SAMBA_SAMPLES_RELEASE_URL="${SAMBA_BASE_URL:=172.30.80.83/EVA_Release/releases/EVA-Samples}"
