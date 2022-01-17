@@ -1,6 +1,6 @@
 ## **
 ## Demo senario: 
-## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! admetadebuger type=1 id=187 class=boy prob=0.876 x1=0.1 y1=0.2 x2=0.3 y2=0.4 ! appsink
+## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! videoconvert ! admetadebuger type=1 id=187 class=boy prob=0.876 x1=0.1 y1=0.2 x2=0.3 y2=0.4 ! appsink
 
 ## This example only show how to get adlink metadata from appsink.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
