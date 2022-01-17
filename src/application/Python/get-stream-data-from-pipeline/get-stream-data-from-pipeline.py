@@ -19,7 +19,7 @@ gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GObject, GLib
 
 grabVec = Queue()
-pipelineOutputQueue = Queue()
+pipeLineOutputVec = Queue()
 num_frames = 0
 
 def need_data(src, length) -> Gst.FlowReturn:
@@ -74,7 +74,7 @@ def extract_data(sample):
 def new_sample(sink, data) -> Gst.FlowReturn:
     sample = sink.emit('pull-sample')
     arr = extract_data(sample)
-    pipelineOutputQueue.put(arr.copy())
+    pipeLineOutputVec.put(arr.copy())
     time.sleep(0.01)
     return Gst.FlowReturn.OK
 
@@ -206,9 +206,9 @@ if __name__ == '__main__':
         # push the image data to vector for the pipeline created in thread as a data provider
         grabVec.put(resize_frame)
         
-        # Save image data queued in pipelineOutputQueue from the pipeline created in thread
-        if pipelineOutputQueue.qsize() > 0:
-            cv2.imwrite("a.bmp", pipelineOutputQueue.get())
+        # Save image data queued in pipeLineOutputVec from the pipeline created in thread
+        if pipeLineOutputVec.qsize() > 0:
+            cv2.imwrite("a.bmp", pipeLineOutputVec.get())
                 
         time.sleep(0.01)
 
