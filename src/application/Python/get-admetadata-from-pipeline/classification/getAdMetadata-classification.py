@@ -1,14 +1,69 @@
+## **
+## Demo senario: 
+## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! videoconvert ! admetadebuger type=0 id=187 class=boy prob=0.876 ! appsink
+
+## This example only show how to get adlink metadata from appsink.
+## So this example does not deal with any other detail concern about snchronize or other tasks.
+## Only show how to retrieve the adlink metdata for user who is interested with them.
+## **
 import sys
-import traceback
-import threading
-from queue import Queue
+import time
 import numpy
+
+# Required to import to get ADLINK inference metadata
+import gst_admeta as admeta
+
 import cv2
 import gi
 gi.require_version('Gst', '1.0')
 
 
 from gi.repository import Gst, GObject
+
+
+def extract_data(sample):
+    buf = sample.get_buffer()
+    caps = sample.get_caps()
+    
+    # ref: get some basic information
+    #print(caps.get_structure(0).get_value('format'))
+    #print(caps.get_structure(0).get_value('height'))
+    #print(caps.get_structure(0).get_value('width'))
+    #print(buf.get_size())
+
+    arr = numpy.ndarray(
+        (caps.get_structure(0).get_value('height'),
+         caps.get_structure(0).get_value('width'),
+         3),
+        buffer=buf.extract_dup(0, buf.get_size()),
+        dtype=numpy.uint8)
+    return arr
+
+
+def new_sample(sink, data) -> Gst.FlowReturn:
+    sample = sink.emit('pull-sample')
+    
+    # get image data and save as bmp file
+    arr = extract_data(sample)
+    cv2.imwrite("a.bmp", arr.copy())
+    
+    # get classification inference result
+    buf = sample.get_buffer()
+    classification_results = admeta.get_classification(buf,0)
+    with classification_results as results:
+        if results is not None:
+            for r in results:                
+                print('**********************')
+                print('classification result:')
+                print('id = ', r.index)
+                print('output = ', r.output.decode("utf-8").strip())
+                print('label = ', r.label.decode("utf-8").strip())
+                print('prob = {:.3f}'.format(r.prob))
+        else:
+            print("None")
+            
+    time.sleep(0.01)
+    return Gst.FlowReturn.OK
 
 
 def on_message(bus: Gst.Bus, message: Gst.Message, loop: GObject.MainLoop):
@@ -46,18 +101,31 @@ if __name__ == '__main__':
     ## element: videotesetsrc
     src = Gst.ElementFactory.make("videotestsrc", "src")
     
-    ## element: autovideosink
-    sink = Gst.ElementFactory.make("autovideosink", "sink")
+    ## element: capsfilter
+    filtercaps = Gst.ElementFactory.make("capsfilter", "filtercaps")
+    filtercaps.set_property("caps", Gst.Caps.from_string("video/x-raw, format=BGR, width=320, height=240"))
+    
+    ## element: videoconvert
+    videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
+    
+    ## element: admetadebuger
+    debuger = Gst.ElementFactory.make("admetadebuger", "debuger")
+    debuger.set_property("type", 0)
+    debuger.set_property("id", 187)
+    debuger.set_property("class", "boy")
+    debuger.set_property("prob", 0.876)
+    
+    ## element: appsink
+    sink = Gst.ElementFactory.make("appsink", "sink")
+    sink.set_property('emit-signals', True)
+    sink.connect('new-sample', new_sample, None)
     
     # Create the empty pipeline
     pipeline = Gst.Pipeline().new("test-pipeline")
     
     # Build the pipeline
-    pipeline_elements = [src, sink]
+    pipeline_elements = [src, filtercaps, videoconvert, debuger, sink]
     establish_pipeline(pipeline, pipeline_elements)
-
-    # Modify the source's properties
-    src.set_property("pattern", 18)
 
     # Start pipeline
     pipeline.set_state(Gst.State.PLAYING)
