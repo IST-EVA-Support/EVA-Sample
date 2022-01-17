@@ -1,6 +1,6 @@
 ## **
 ## Demo senario: 
-## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! videoconvert ! admetadebuger type=0 id=187 class=boy prob=0.876 ! appsink
+## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! admetadebuger type=1 id=187 class=boy prob=0.876 x1=0.1 y1=0.2 x2=0.3 y2=0.4 ! appsink
 
 ## This example only show how to get adlink metadata from appsink.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
@@ -47,18 +47,14 @@ def new_sample(sink, data) -> Gst.FlowReturn:
     arr = extract_data(sample)
     cv2.imwrite("a.bmp", arr.copy())
     
-    # get classification inference result
+    # get detection inference result
     buf = sample.get_buffer()
-    classification_results = admeta.get_classification(buf,0)
-    with classification_results as results:
-        if results is not None:
-            for r in results:                
-                print('**********************')
-                print('classification result:')
-                print('id = ', r.index)
-                print('output = ', r.output.decode("utf-8").strip())
-                print('label = ', r.label.decode("utf-8").strip())
-                print('prob = {:.3f}'.format(r.prob))
+    boxes = admeta.get_detection_box(buf,0)
+    
+    with boxes as det_box :
+        if det_box is not None :
+            for box in det_box:                
+                print('Detection result: prob={:.3f}, coordinate=({:.2f},{:.2f}) to ({:.2f},{:.2f})), Index = {}, Label = {}'.format(box.prob,box.x1,box.y1,box.x2, box.y2, box.obj_id, box.obj_label.decode("utf-8").strip()))
         else:
             print("None")
             
@@ -110,10 +106,14 @@ if __name__ == '__main__':
     
     ## element: admetadebuger
     debuger = Gst.ElementFactory.make("admetadebuger", "debuger")
-    debuger.set_property("type", 0)
+    debuger.set_property("type", 1)
     debuger.set_property("id", 187)
     debuger.set_property("class", "boy")
     debuger.set_property("prob", 0.876)
+    debuger.set_property("x1", 0.1)
+    debuger.set_property("y1", 0.2)
+    debuger.set_property("x2", 0.3)
+    debuger.set_property("y2", 0.4)
     
     ## element: appsink
     sink = Gst.ElementFactory.make("appsink", "sink")
