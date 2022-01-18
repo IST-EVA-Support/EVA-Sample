@@ -34,3 +34,4 @@ cv_dep = declare_dependency(
 #### End to declare OpenCV4 dependency
 
 subdir('application')
+subdir('Plugin')
