@@ -96,7 +96,7 @@ ad_filter_template_class_init(AdFilterTemplateClass *klass)
 
   g_object_class_install_property(gobject_class, PROP_FILTER_TYPE,
                                   g_param_spec_int("type", "Type",
-                                                   "Filter type 1.Edge 2.Gray", 0, 1,
+                                                   "Filter type 0.Edge 1.Gray", 0, 1,
                                                    DEFAULT_FILTER_TYPE, (GParamFlags)G_PARAM_READWRITE));
 
   g_object_class_install_property(gobject_class, PROP_EDGE_VALUE,
