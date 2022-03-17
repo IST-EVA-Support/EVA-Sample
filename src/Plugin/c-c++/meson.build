@@ -14,3 +14,4 @@ gst_video = declare_dependency(
 	)
 
 subdir('video-filter')
+subdir('get-stream-data-in-element')
