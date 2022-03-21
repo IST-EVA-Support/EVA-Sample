@@ -25,12 +25,6 @@ using namespace cv;
 GST_DEBUG_CATEGORY_STATIC(ad_get_stream_data_debug_category);
 #define GST_CAT_DEFAULT ad_get_stream_data_debug_category
 
-/*#define AD_GET_STREAM_DATA_GET_PRIVATE(obj) ( \
-    G_TYPE_INSTANCE_GET_PRIVATE(              \
-        (obj),                                \
-        AD_TYPE_GET_STREAM_DATA,              \
-        AdGetStreamDataPrivate))
-*/
 enum
 {
   PROP_0
@@ -55,7 +49,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
 #define DEBUG_INIT \
   GST_DEBUG_CATEGORY_INIT(GST_CAT_DEFAULT, PLUGIN_NAME, 0, "debug category for get stream data element");
 
-//G_DEFINE_TYPE_WITH_CODE(AdGetStreamData, ad_get_stream_data, GST_TYPE_VIDEO_FILTER, DEBUG_INIT)
 G_DEFINE_TYPE_WITH_CODE(AdGetStreamData, ad_get_stream_data, GST_TYPE_VIDEO_FILTER,
                         G_ADD_PRIVATE(AdGetStreamData)
                             DEBUG_INIT)
@@ -98,8 +91,6 @@ ad_get_stream_data_class_init(AdGetStreamDataClass *klass)
 
   gstvideofilter_class->transform_frame_ip =
       GST_DEBUG_FUNCPTR(ad_get_stream_data_transform_frame_ip);
-
-  //g_type_class_add_private(klass, sizeof(AdGetStreamDataPrivate));
 }
 
 static void
@@ -107,7 +98,6 @@ ad_get_stream_data_init(AdGetStreamData *
                             sample_filter)
 {
   sample_filter->priv = (AdGetStreamDataPrivate *)ad_get_stream_data_get_instance_private(sample_filter);
-  //sample_filter->priv = AD_GET_STREAM_DATA_GET_PRIVATE(sample_filter);
 
   g_rec_mutex_init(&sample_filter->priv->mutex);
 }
@@ -151,16 +141,6 @@ ad_get_stream_data_get_property(GObject *object, guint property_id,
 static void
 ad_get_stream_data_dispose(GObject *object)
 {
-  /* In dispose(), you are supposed to free all types referenced from this
-   * object which might themselves hold a reference to self. Generally,
-   * the most simple solution is to unref all members on which you own a 
-   * reference.
-   */
-
-  /* dispose() might be called multiple times, so we must guard against
-   * calling g_object_unref() on an invalid GObject by setting the member
-   * NULL; g_clear_object() does this for us.
-   */
 }
 
 static void
@@ -183,18 +163,19 @@ ad_get_stream_data_transform_frame_ip(GstVideoFilter *filter,
   AdGetStreamData *sample_filter = AD_GET_STREAM_DATA(filter);
   GstMapInfo info;
   Mat output_image;
-  int filter_type;
-  int edge_threshold;
 
   gst_buffer_map(frame->buffer, &info, GST_MAP_READ);
 
-  // 
+  // Reference stream data tp cv::Mat
   ad_get_stream_data_initialize_images(sample_filter, frame, info);
 
   // After getting the stream data(image data), do the process you want. Here just simply assume doing edge detection by opencv.
-  Canny((*sample_filter->priv->cv_image), output_image,
-          edge_threshold, 255);
+  int x = (frame->info.width * 0.1);
+  int y = (frame->info.width * 0.3);
+  float size = frame->info.width / 640.0;
+  putText((*sample_filter->priv->cv_image), "Do your algorithm or processing here.", Point(x, y), FONT_HERSHEY_SCRIPT_SIMPLEX, size, Scalar(32, 255, 64), 1.25, LINE_AA);
 
+  // Peplace the reference stream data by result
   if (output_image.data != NULL)
     ad_get_stream_data_replace_stream_back(sample_filter, output_image);
 
