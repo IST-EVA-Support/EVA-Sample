@@ -1,1 +1,5 @@
-executable('getAdMetadata-object-detection', ['getAdMetadata-object-detection.cpp'], dependencies: [cv_dep, gst_dep, pthread_dep, gstmeta_dep])
+plugin_sources = ['adgetobjectdetection.cpp']
+adfiltertemplate = library('adgetobjectdetection', 
+  plugin_sources, 
+  cpp_args : [],
+  dependencies : [gst_dep, gst_video, gstmeta_dep])
