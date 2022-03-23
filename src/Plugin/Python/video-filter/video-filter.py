@@ -96,6 +96,7 @@ class VideoFilter(Gst.Element):
         raise AttributeError('unknown property %s' % prop.name)
     
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
+      # Implement your frame operate logical here
       # get image stream data
       img = gst_cv_helper.pad_and_buffer_to_numpy(pad, buff, ro=False)
 
