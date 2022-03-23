@@ -1,9 +1,6 @@
 import cv2
 import gst_cv_helper
-# import ctypes
 import numpy as np
-#import gst_helper
-#import gst_admeta as admeta
 from gi.repository import Gst, GObject, GLib, GstVideo
 
 
