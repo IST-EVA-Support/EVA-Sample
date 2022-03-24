@@ -169,7 +169,7 @@ ad_get_stream_data_transform_frame_ip(GstVideoFilter *filter,
   // Reference stream data tp cv::Mat
   ad_get_stream_data_initialize_images(sample_filter, frame, info);
 
-  // After getting the stream data(image data), do the process you want. Here just simply assume doing edge detection by opencv.
+  // After getting the stream data(image data), do the process you want. Here just simply assume doing text overlay by opencv.
   int x = (frame->info.width * 0.1);
   int y = (frame->info.width * 0.3);
   float size = frame->info.width / 640.0;

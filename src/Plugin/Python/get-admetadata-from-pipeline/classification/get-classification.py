@@ -1,5 +1,6 @@
 import cv2
 import gst_cv_helper
+import gst_admeta as admeta # Required to import to get ADLINK inference metadata
 import numpy as np
 from gi.repository import Gst, GObject, GLib, GstVideo
 
@@ -12,9 +13,8 @@ def gst_video_caps_make(fmt):
     "framerate = " + GstVideo.VIDEO_FPS_RANGE
                                                                                                                        
 
-class GetStreamData(Gst.Element):
-    # MODIFIED - Gstreamer plugin name
-    GST_PLUGIN_NAME = 'get_stream_data'
+class GetClassification(Gst.Element):
+    GST_PLUGIN_NAME = 'get_classification'
 
     __gstmetadata__ = ("Video Filter",
                        "GstElement",
@@ -33,22 +33,9 @@ class GetStreamData(Gst.Element):
     _sinkpadtemplate = __gsttemplates__[1]
     _srcpadtemplate = __gsttemplates__[0]
 
-    # MODIFIED - Gstreamer plugin properties
-    __gproperties__ = {
-      "output-text": (str,                                      # type
-                      "output-text",                            # nick
-                      "Text content overlay on the frame",      # blurb
-                      "",                                       # default
-                      GObject.ParamFlags.READWRITE              # flags
-                     )
-    }
-
     def __init__(self):
-      # MODIFIED - Setting gstreamer plugin properties default value
-      # Note - Initialize properties before Base Class initialization
-      self.text = "Do your algorithm or processing here."
 
-      super(GetStreamData, self).__init__()
+      super(GetClassification, self).__init__()
 
       self.sinkpad = Gst.Pad.new_from_template(self._sinkpadtemplate, 'sink')
 
@@ -67,30 +54,27 @@ class GetStreamData(Gst.Element):
 
 
     def do_get_property(self, prop: GObject.GParamSpec):
-      # MODIFIED - Gstreamer plugin properties getting
-      if prop.name == 'output-text':
-        return self.text
-      else:
-        raise AttributeError('unknown property %s' % prop.name)
+        return
     
     def do_set_property(self, prop: GObject.GParamSpec, value):
-      # MODIFIED - Gstreamer plugin properties setting
-      if prop.name == 'output-text':
-        self.text = int(value)
-      else:
-        raise AttributeError('unknown property %s' % prop.name)
+        return
     
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
-      # Implement your frame operate logical here
-      # get image stream data
-      img = gst_cv_helper.pad_and_buffer_to_numpy(pad, buff, ro=False)
-
-      # After getting the stream data(image data), do the process you want. Here just simply assume doing text overlay by opencv.
-      h, w, c = img.shape
-      x = int((w * 0.1));
-      y = int((h * 0.3));
-      size = w / 640.0;
-      cv2.putText(img, self.text, (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, size, (32, 255, 64), 1, cv2.LINE_AA);
+      # This function will get classification result from admetadata
+      class_results = admeta.get_classification(buff, 0)
+      
+      # Iteratively retrieve the content of classification 
+      with class_results as results:
+        if results is not None:
+            for r in results:                
+                print('**********************')
+                print('classification result:')
+                print('id = ', r.index)
+                print('output = ', r.output.decode("utf-8").strip())
+                print('label = ', r.label.decode("utf-8").strip())
+                print('prob = {:.3f}'.format(r.prob))
+        else:
+            print("None")
       
       return self.srcpad.push(buff)
     
@@ -101,8 +85,6 @@ class GetStreamData(Gst.Element):
       return self.srcpad.push_event(event)
 
 
-
-# Register plugin to use it from command line
-GObject.type_register(GetStreamData)
-__gstelementfactory__ = (GetStreamData.GST_PLUGIN_NAME,
-                         Gst.Rank.NONE, GetStreamData)
+GObject.type_register(GetClassification)
+__gstelementfactory__ = (GetClassification.GST_PLUGIN_NAME,
+                         Gst.Rank.NONE, GetClassification)
