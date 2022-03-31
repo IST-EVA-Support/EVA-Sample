@@ -23,10 +23,10 @@ class ClassifierSamplePy(Gst.Element):
     # MODIFIED - Gstreamer plugin name
     GST_PLUGIN_NAME = 'classifier_sample'
 
-    __gstmetadata__ = ("Name",
-                       "Transform",
-                       "Description",
-                       "Author")
+    __gstmetadata__ = ("Metadata addition",
+                       "GstElement",
+                       "Python based example for adding classification results",
+                       "Lyan Hung <lyan.hung@adlinktech.com>, Dr. Paul Lin <paul.lin@adlinktech.com>")
 
     __gsttemplates__ = (Gst.PadTemplate.new("src",
                                             Gst.PadDirection.SRC,
@@ -60,10 +60,10 @@ class ClassifierSamplePy(Gst.Element):
       self.add_pad(self.srcpad)
 
     def do_get_property(self, prop: GObject.GParamSpec):
-        return
+        raise AttributeError('unknown property %s' % prop.name)
 
     def do_set_property(self, prop: GObject.GParamSpec, value):
-        return
+        raise AttributeError('unknown property %s' % prop.name)
 
     def eventfunc(self, pad: Gst.Pad, parent, event: Gst.Event) -> bool:
       return self.srcpad.push_event(event)
