@@ -22,8 +22,8 @@ def gst_video_caps_make(fmt):
 
 BOX_NUM = 5
 DUMMY_BOXS = [[rand(), rand(), rand(), rand()] for i in range(BOX_NUM)]
-def parse_inference_data_to_boxs():
-  # Generate dummy box here, please implement your own parse algorithm
+def parse_inference_data_to_boxs(*data):
+  # Generate dummy box here, please implement your own parse algorithm with input data
   boxs = []
   for b in DUMMY_BOXS:
     for j in range(len(b)):
