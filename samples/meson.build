@@ -17,7 +17,10 @@ if target_machine.system() == 'linux'
                    dirs : [join_paths(opencv_dir, 'lib'),
                    join_paths(opencv_dir, 'lib', '@0@-linux-gnu'.format(target_machine.cpu()))])
   endforeach
-  inc_cv = include_directories(join_paths(opencv_dir, 'include', 'opencv4'))
+  inc_cv = [include_directories(join_paths(opencv_dir, 'include'))]
+  if run_command('[', '-d', join_paths(opencv_dir, 'include', 'opencv4'), ']').returncode() == 0
+    inc_cv += include_directories(join_paths(opencv_dir, 'include', 'opencv4'))
+  endif
 elif target_machine.system() == 'windows'
   foreach lib_name : req_cv_libs
     libs_cv += cc.find_library('opencv_' + lib_name + (get_option('buildtype') == 'release' ? '450' : '450d'),
