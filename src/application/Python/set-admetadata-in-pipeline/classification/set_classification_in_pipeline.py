@@ -25,7 +25,7 @@ grabBuffer = Queue()
 num_frames = 0
 
 def need_data(src, length) -> Gst.FlowReturn:
-    # wait for image data vector, grabVec, is not full
+    # wait for image data vector, grabBuffer, is not full
     while True:
         time.sleep(0.001)
         if grabBuffer.qsize() > 0:
@@ -50,6 +50,7 @@ def need_data(src, length) -> Gst.FlowReturn:
         class_prob = random.uniform(0, 1)
         cls.append(admeta._Classification(class_id, '', labels[class_id], class_prob))
 
+        # set classification into buffer
         pad_list = src.get_pad_template_list()
         pad = Gst.Element.get_static_pad(src, pad_list[0].name_template)
         admeta.set_classification(buf, pad, cls)
@@ -156,7 +157,7 @@ if __name__ == '__main__':
         sys.exit()
 
     if cap.isOpened() == False:
-        print("ERROR! Unable to open camera")
+        print("ERROR! Video frame capture failed")
         sys.exit()
       
     pipthread.start()

@@ -61,7 +61,7 @@ static void cb_need_data(GstElement *appsrc, guint unused_size, gpointer user_da
 	std::vector<adlink::ai::DetectionBoxResult> random_boxes;
         srand( time(NULL) );
 
-	// Generate random dummy boxes here
+	// Generate random dummy box here
 	adlink::ai::DetectionBoxResult random_box;
 	int i = rand() % 5;
 	random_box.obj_id = i;

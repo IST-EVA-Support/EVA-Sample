@@ -25,7 +25,7 @@ grabBuffer = Queue()
 num_frames = 0
 
 def need_data(src, length) -> Gst.FlowReturn:
-    # wait for image data vector, grabVec, is not full
+    # wait for image data vector, grabBuffer, is not full
     while True:
         time.sleep(0.001)
         if grabBuffer.qsize() > 0:
@@ -56,6 +56,7 @@ def need_data(src, length) -> Gst.FlowReturn:
         y2 = random.randrange(7, 10)/10	# 0.7~0.9
         random_box.append(admeta._DetectionBox(obj_id, obj_label, 0, '', x1, y1, x2, y2, prob, ''))
 
+        # set random object detection into buffer
         pad_list = src.get_pad_template_list()
         pad = Gst.Element.get_static_pad(src, pad_list[0].name_template)
         admeta.set_detection_box(buf, pad, random_box)
@@ -162,7 +163,7 @@ if __name__ == '__main__':
         sys.exit()
 
     if cap.isOpened() == False:
-        print("ERROR! Unable to open camera")
+        print("ERROR! Video frame capture failed")
         sys.exit()
       
     pipthread.start()
