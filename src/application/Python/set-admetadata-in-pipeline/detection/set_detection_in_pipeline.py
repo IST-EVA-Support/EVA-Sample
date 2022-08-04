@@ -1,5 +1,5 @@
 ## **
-## Demo senario: appsrc ! drawer ! videoconvert ! ximagesink
+## Demo senario: appsrc ! admetadrawer ! videoconvert ! ximagesink
 ## 
 ## This example only show how to feed frame data to appsrc and set object detections to adlink metadata.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
