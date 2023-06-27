@@ -1,3 +1,7 @@
+//**
+//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetclassification ! draw_roi ! adgetclassification ! videoconvert ! ximagesink
+//**
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -10,7 +14,7 @@
 #include <glib/gstdio.h>
 
 #include <iostream>
-#include "gstadmeta.h" // include gstadmeta.h for retrieving the inference results
+#include <gstadroi_frame.h> // include gstadroi_frame.h for retrieving the inference results
 
 #define PLUGIN_NAME "adgetclassification"
 
@@ -49,28 +53,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
 G_DEFINE_TYPE_WITH_CODE(AdGetClassification, ad_get_classification, GST_TYPE_VIDEO_FILTER,
                         G_ADD_PRIVATE(AdGetClassification)
                             DEBUG_INIT)
-
-// ************************************************************
-// Required to add this gst_buffer_get_ad_batch_meta for retrieving 
-// the GstAdBatchMeta from buffer
-GstAdBatchMeta* gst_buffer_get_ad_batch_meta(GstBuffer* buffer)
-{
-    gpointer state = NULL;
-    GstMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
-    
-    while ((meta = gst_buffer_iterate_meta (buffer, &state))) 
-    {
-        if (meta->info->api == info->api) 
-        {
-            GstAdMeta *admeta = (GstAdMeta *) meta;
-            if (admeta->type == AdBatchMeta)
-                return (GstAdBatchMeta*)meta;
-        }
-    }
-    return NULL;
-}
-// ************************************************************
 
 static void ad_get_classification_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
 static void ad_get_classification_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec);
@@ -187,31 +169,25 @@ ad_get_classification_transform_frame_ip(GstVideoFilter *filter,
 static void 
 getClassificationData(GstBuffer* buffer)
 {
-    GstAdBatchMeta *meta = gst_buffer_get_ad_batch_meta(buffer);
-    if (meta == NULL)
-        GST_MESSAGE("Adlink metadata is not exist!");
-    else
+    std::vector<QueryResult> results = gst_buffer_adroi_query(buffer, "//");
+    for(unsigned int i = 0; i < results.size(); ++i)
     {
-        AdBatch &batch = meta->batch;
-        
-        bool frame_exist = batch.frames.size() > 0 ? true : false;
-        if(frame_exist)
+        QueryResult queryResult = results[i];
+        for(auto roi: queryResult.rois)
         {
-            VideoFrameData frame_info = batch.frames[0];
-            int classificationResultNumber = frame_info.class_results.size();
-            std::cout << "there are " << classificationResultNumber << " results." << std::endl;
-            for(int i = 0 ; i < classificationResultNumber ; ++i)
+            if(roi->category == "box")
             {
-                std::cout << "*********** classification result #" << (i+1) << std::endl;
-                adlink::ai::ClassificationResult classification_result = frame_info.class_results[i];
+                auto box = std::static_pointer_cast<Box>(roi);
+                auto labelInfo = std::static_pointer_cast<Classification>(roi->datas.at(0));
                 
-                std::cout << "index = " << classification_result.index << std::endl;
-                std::cout << "output = " << classification_result.output << std::endl;
-                std::cout << "label = " << classification_result.label << std::endl;
-                std::cout << "prob = " << classification_result.prob << std::endl;
+                std::cout << "===== metadata version 2 in application =====\n";
+                std::cout << "Label ID = " << labelInfo->labelID << std::endl;
+                std::cout << "Label = " << labelInfo->label << std::endl;
+                std::cout << "Prob =  " << labelInfo->confidence << std::endl;
+                std::cout << "=============================================\n";
             }
+            
         }
-        
     }
 }
 

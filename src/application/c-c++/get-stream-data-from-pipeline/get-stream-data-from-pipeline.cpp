@@ -74,7 +74,7 @@ static GstFlowReturn new_sample(GstElement *sink, gpointer *udata)
         gst_buffer_unmap(buffer, &map);
         gst_buffer_unref (buffer);
         
-        //gst_sample_unref (sample);
+        gst_sample_unref (sample);
         return GST_FLOW_OK;
     }
     

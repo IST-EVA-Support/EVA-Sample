@@ -1,7 +1,7 @@
 // **
-// Demo senario: appsrc ! admetadrawer ! videoconvert ! ximagesink
+// Demo senario: appsrc ! draw_roi ! videoconvert ! ximagesink
 // 
-// This example only show how to feed frame data to appsrc and set classifications to adlink metadata.
+// This example only show how to feed frame data to appsrc and set classifications to adlink metadata version 2.
 // So this example does not deal with any other detail concern about snchronize or other tasks.
 // Only show how to set the adlink metdata through appsrc for user who is interested with them.
 // **
@@ -13,7 +13,8 @@
 #include <vector>
 #include <gst/gst.h>
 
-#include "gstadmeta.h"
+#include <gstadroi_frame.h>
+#include <gstadroi_batch.h>
 
 using namespace cv;
 using namespace std;
@@ -26,10 +27,7 @@ int cols, rows, depth, channels;
 static void cb_need_data(GstElement *appsrc, guint unused_size, gpointer user_data)
 {
     static GstClockTime timestamp = 0;
-    gpointer state = NULL;
     GstBuffer *buffer;
-    GstAdBatchMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
     guint size;
     GstFlowReturn ret;
     GstMapInfo map;
@@ -52,33 +50,27 @@ static void cb_need_data(GstElement *appsrc, guint unused_size, gpointer user_da
     GST_BUFFER_PTS (buffer) = timestamp;
     GST_BUFFER_DURATION (buffer) = gst_util_uint64_scale_int (1, GST_SECOND, 2);
     timestamp += GST_BUFFER_DURATION (buffer);
+    
+    /* set random labels to buffer */
+    GstElement *element = (GstElement *) appsrc;
+    auto *f_meta = gst_buffer_acquire_adroi_frame_meta(buffer, (GstPad *)g_list_nth_data(element->pads, 0));
+    if (f_meta == nullptr) 
+        std::cout << "Can not get adlink ROI frame metadata" << std::endl;
 
-    meta = (GstAdBatchMeta *)gst_buffer_add_meta(buffer, info, &state);
-        	
-    /* set random labels to buffer when frame is empty */
-    bool frame_exist = meta->batch.frames.size() > 0 ? true : false;
-    if(!frame_exist)
+    auto *b_meta = gst_buffer_acquire_adroi_batch_meta(buffer);
+    if (b_meta == nullptr)
+        std::cout << "Can not acquire adlink ROI batch metadata" << std::endl;
+    
+    std::vector<std::string> labels = {"water bottle", "camera", "chair", "person", "slipper", "mouse", "Triceratops", "woodpecker"};
+    srand( time(NULL) );
+    int index = rand() % labels.size();
+
+    auto qrs = f_meta->frame->query("//");
+    if(qrs[0].rois.size() > 0)
     {
-	VideoFrameData frame_info;
-	std::vector<std::string> labels = {"water bottle", "camera", "chair", "person", "slipper", "mouse", "Triceratops", "woodpecker"};
-	srand( time(NULL) );
-
-	adlink::ai::ClassificationResult classification;
-	classification.index = (rand() % labels.size());
-	classification.output = "";
-	classification.label = labels[classification.index];
-	classification.prob = (double)classification.index / labels.size();
-
-	frame_info.stream_id = " ";
-	frame_info.width = cols;
-	frame_info.height = rows;
-	frame_info.depth = depth;
-	frame_info.channels = channels;
-	frame_info.device_idx = 0;
-	frame_info.class_results.push_back(classification);
-	meta->batch.frames.push_back(frame_info);
+        qrs[0].rois[0]->add_classification("sample-engine", "", (float)index / labels.size(), labels[index], index);
     }
-
+    
     /* push buffer to appsrc */
     g_signal_emit_by_name (appsrc, "push-buffer", buffer, &ret);
     gst_buffer_unref (buffer);
@@ -103,7 +95,8 @@ static void establish_thread_pipeline()
     /* setup pipeline */
     pipeline = gst_pipeline_new ("pipeline");
     appsrc = gst_element_factory_make ("appsrc", "appsrc");
-    drawer = gst_element_factory_make("admetadrawer", "drawer");
+    drawer = gst_element_factory_make("draw_roi", "drawer");
+//     g_object_set (drawer, "showlabel", true, NULL);
     videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
     ximagesink = gst_element_factory_make("ximagesink", "ximagesink");
 

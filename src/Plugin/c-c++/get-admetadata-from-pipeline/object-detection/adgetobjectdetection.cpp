@@ -1,3 +1,7 @@
+//**
+//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetobjectdetection ! draw_roi ! adgetobjectdetection ! videoconvert ! ximagesink
+//**
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -10,7 +14,7 @@
 #include <glib/gstdio.h>
 
 #include <iostream>
-#include "gstadmeta.h" // include gstadmeta.h for retrieving the inference results
+#include <gstadroi_frame.h> // include gstadroi_frame.h for retrieving the inference results
 
 #define PLUGIN_NAME "adgetobjectdetection"
 
@@ -49,28 +53,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
 G_DEFINE_TYPE_WITH_CODE(AdGetObjectDetection, ad_get_object_detection, GST_TYPE_VIDEO_FILTER,
                         G_ADD_PRIVATE(AdGetObjectDetection)
                             DEBUG_INIT)
-
-// ************************************************************
-// Required to add this gst_buffer_get_ad_batch_meta for retrieving 
-// the GstAdBatchMeta from buffer
-GstAdBatchMeta* gst_buffer_get_ad_batch_meta(GstBuffer* buffer)
-{
-    gpointer state = NULL;
-    GstMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
-    
-    while ((meta = gst_buffer_iterate_meta (buffer, &state))) 
-    {
-        if (meta->info->api == info->api) 
-        {
-            GstAdMeta *admeta = (GstAdMeta *) meta;
-            if (admeta->type == AdBatchMeta)
-                return (GstAdBatchMeta*)meta;
-        }
-    }
-    return NULL;
-}
-// ************************************************************
 
 static void ad_get_object_detection_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
 static void ad_get_object_detection_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec);
@@ -187,33 +169,31 @@ ad_get_object_detection_transform_frame_ip(GstVideoFilter *filter,
 static void 
 getObjectDetectionData(GstBuffer* buffer)
 {
-    GstAdBatchMeta *meta = gst_buffer_get_ad_batch_meta(buffer);
-    if (meta == NULL)
-        GST_MESSAGE("Adlink metadata is not exist!");
-    else
+    std::vector<QueryResult> results = gst_buffer_adroi_query(buffer, "//sample-engine");
+    for(unsigned int i = 0; i < results.size(); ++i)
     {
-        AdBatch &batch = meta->batch;
-        bool frame_exist = batch.frames.size() > 0 ? true : false;
-        if(frame_exist)
+        QueryResult queryResult = results[i];
+        for(auto roi: queryResult.rois)
         {
-            VideoFrameData frame_info = batch.frames[0];
-            int detectionResultNumber = frame_info.detection_results.size();
-            std::cout << "detection result number = " << detectionResultNumber << std::endl;
-            for(int i = 0 ; i < detectionResultNumber ; ++i)
+            if(roi->category == "box")
             {
-                std::cout << "========== metadata in application ==========\n";
-                std::cout << "Class = " << frame_info.detection_results[i].obj_id << std::endl;
-                std::cout << "Label = " << frame_info.detection_results[i].obj_label << std::endl;
-                std::cout << "Prob =  " << frame_info.detection_results[i].prob << std::endl;
+                auto box = std::static_pointer_cast<Box>(roi);
+                auto labelInfo = std::static_pointer_cast<Classification>(roi->datas.at(0));
+                
+                std::cout << "========== metadata version 2 in application ==========\n";
+                std::cout << "Label ID = " << labelInfo->labelID << std::endl;
+                std::cout << "Label = " << labelInfo->label << std::endl;
+                std::cout << "Prob =  " << labelInfo->confidence << std::endl;
                 std::cout << "(x1, y1, x2, y2) = (" 
-                << frame_info.detection_results[i].x1 << ", " 
-                << frame_info.detection_results[i].y1 << ", "
-                << frame_info.detection_results[i].x2 << ", " 
-                << frame_info.detection_results[i].y2 << ")" << std::endl;
+                << box->x1 << ", " 
+                << box->y1 << ", "
+                << box->x2 << ", " 
+                << box->y2 << ")" << std::endl;
                 std::cout << "=============================================\n";
-            }
+                
+            }    
         }
-    }
+    } 
 }
 
 gboolean

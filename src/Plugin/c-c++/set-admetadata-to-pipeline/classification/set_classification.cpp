@@ -1,5 +1,5 @@
 //**
-//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetclassification ! admetadrawer ! videoconvert ! ximagesink
+//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetclassification ! draw_roi ! videoconvert ! ximagesink
 //**
 
 #ifdef HAVE_CONFIG_H
@@ -18,7 +18,8 @@
 #include <string>
 #include <stdlib.h> // include random value function
 #include <time.h>   // include time
-#include "gstadmeta.h" // include gstadmeta.h for retrieving the inference results
+#include <gstadroi_frame.h> // include gstadroi_frame.h for retrieving the inference results
+#include <gstadroi_batch.h> // include gstadroi_batch.h for retrieving the inference results
 
 #define PLUGIN_NAME "adsetclassification"
 
@@ -64,7 +65,7 @@ static void ad_set_classification_get_property(GObject *object, guint property_i
 static void ad_set_classification_dispose(GObject *object);
 static void ad_set_classification_finalize(GObject *object);
 static GstFlowReturn ad_set_classification_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame);
-static void setClassificationData(GstBuffer* buffer);
+static void setClassificationData(GstBuffer* buffer, GstPad *pad);
 
 static void     // initialize metadata
 ad_set_classification_class_init(AdSetClassificationClass *klass)
@@ -168,42 +169,38 @@ ad_set_classification_transform_frame_ip(GstVideoFilter *filter,
   gst_buffer_map(frame->buffer, &info, GST_MAP_READ);
   
   // Set classification
-  setClassificationData(frame->buffer);
+  setClassificationData(frame->buffer, filter->element.sinkpad);
 
   gst_buffer_unmap(frame->buffer, &info);
   return GST_FLOW_OK;
 }
 
 static void 
-setClassificationData(GstBuffer* buffer)
+setClassificationData(GstBuffer* buffer, GstPad *pad)
 {
-    gpointer state = NULL;
-    GstAdBatchMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
-    meta = (GstAdBatchMeta *)gst_buffer_add_meta(buffer, info, &state);
-        
-    bool frame_exist = meta->batch.frames.size() > 0 ? true : false;
-    if(!frame_exist)
+    auto *f_meta = gst_buffer_acquire_adroi_frame_meta(buffer, pad);
+    if (f_meta == nullptr) 
     {
-        VideoFrameData frame_info;
-	std::vector<std::string> labels = {"water bottle", "camera", "chair", "person", "slipper", "mouse", "Triceratops", "woodpecker"};
+        GST_ERROR("Can not get adlink ROI frame metadata");
+        return;
+    }
+    
+    auto *b_meta = gst_buffer_acquire_adroi_batch_meta(buffer);
+    if (b_meta == nullptr)
+    {
+        GST_ERROR("Can not acquire adlink ROI batch metadata");
+        return;
+    }
+    
+    auto qrs = f_meta->frame->query("//");
+    if(qrs.size() != 0)
+    {
+        std::vector<std::string> labels = {"water bottle", "camera", "chair", "person", "slipper", "mouse", "Triceratops", "woodpecker"};
 	srand( time(NULL) );
-		
-	// Create random labels
-	adlink::ai::ClassificationResult classification;
-	classification.index = (rand() % labels.size());
-	classification.output = "";
-	classification.label = labels[classification.index];
-	classification.prob = (double)classification.index / labels.size();
-
-        frame_info.stream_id = " ";
-	frame_info.width = 640;
-        frame_info.height = 480;
-        frame_info.depth = 0;
-        frame_info.channels = 3;
-        frame_info.device_idx = 0;
-        frame_info.class_results.push_back(classification);
-	meta->batch.frames.push_back(frame_info);
+        int index = rand() % labels.size();
+        
+        if(qrs[0].rois.size() > 0)
+            qrs[0].rois[0]->add_classification("sample-engine", "", (float)index / labels.size(), labels[index], index);
     }
 }
 

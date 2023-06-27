@@ -1,8 +1,8 @@
 // **
 // Demo senario: 
-// gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! admetadebuger type=0 id=187 class=boy prob=0.876 ! appsink
+// gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! adsetclassification ! appsink
 
-// This example only show how to get adlink metadata from appsink.
+// This example only show how to get adlink metadata version 2 from appsink.
 // So this example does not deal with any other detail concern about snchronize or other tasks.
 // Only show how to retrieve the adlink metdata for user who is interested with them.
 // **
@@ -14,33 +14,15 @@
 #include <vector>
 #include <gst/gst.h>
 
-#include "gstadmeta.h"
+#include <gstadroi_frame.h>
 
 using namespace cv;
 using namespace std;
 
 static GMainLoop *loop;
-GstElement *pipeline, *videotestsrc, *filtercaps, *debuger, *appsink;
+GstElement *pipeline, *videotestsrc, *filtercaps, *adsetclassification, *appsink;
 vector<Mat> pipeLineOutputVec;
 cv::Mat img(cv::Size(320, 240), CV_8UC3);
-
-GstAdBatchMeta* gst_buffer_get_ad_batch_meta(GstBuffer* buffer)
-{
-    gpointer state = NULL;
-    GstMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
-    
-    while ((meta = gst_buffer_iterate_meta (buffer, &state))) 
-    {
-        if (meta->info->api == info->api) 
-        {
-            GstAdMeta *admeta = (GstAdMeta *) meta;
-            if (admeta->type == AdBatchMeta)
-                return (GstAdBatchMeta*)meta;
-        }
-    }
-    return NULL;
-}
 
 static GstFlowReturn new_sample(GstElement *sink, gpointer *udata) 
 {
@@ -57,21 +39,24 @@ static GstFlowReturn new_sample(GstElement *sink, gpointer *udata)
         
         gst_buffer_map(buffer, &map, GST_MAP_READ);
         
-        GstAdBatchMeta *meta = gst_buffer_get_ad_batch_meta(buffer);
-        if(meta != NULL)
+        std::vector<QueryResult> results = gst_buffer_adroi_query(buffer, "//");
+        for(unsigned int i = 0; i < results.size(); ++i)
         {
-            AdBatch &batch = meta->batch; 
-            VideoFrameData frame_info = batch.frames[0];
-            int classificationResultNumber = frame_info.class_results.size();
-            cout << "classification result number = " << classificationResultNumber << endl;
-            for(int i = 0 ; i < classificationResultNumber ; ++i)
+            QueryResult queryResult = results[i];
+            for(auto roi: queryResult.rois)
             {
-                cout << "========== metadata in application ==========\n";
-                cout << "Class = " << frame_info.class_results[i].index << endl;
-                cout << "Label = " << frame_info.class_results[i].label << endl;
-                cout << "output =  " << frame_info.class_results[i].output << endl;
-                cout << "Prob =  " << frame_info.class_results[i].prob << endl;
-                cout << "=============================================\n";
+                if(roi->category == "box")
+                {
+                    auto box = std::static_pointer_cast<Box>(roi);
+                    auto labelInfo = std::static_pointer_cast<Classification>(roi->datas.at(0));
+                    
+                    cout << "===== metadata version 2 in application =====\n";
+                    cout << "Label ID = " << labelInfo->labelID << endl;
+                    cout << "Label = " << labelInfo->label << endl;
+                    cout << "Prob =  " << labelInfo->confidence << endl;
+                    cout << "=============================================\n";
+                }
+                
             }
         }
         
@@ -106,7 +91,7 @@ static void establish_thread_pipeline()
     pipeline = gst_pipeline_new ("pipeline");
     videotestsrc = gst_element_factory_make ("videotestsrc", "source");
     filtercaps = gst_element_factory_make ("capsfilter", "filtercaps");
-    debuger = gst_element_factory_make("admetadebuger", "debuger");
+    adsetclassification = gst_element_factory_make("adsetclassification", "setclassification");
     appsink = gst_element_factory_make ("appsink", "appsink");
 
     /* setup filtercaps*/
@@ -114,11 +99,8 @@ static void establish_thread_pipeline()
                   gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "BGR",
                                        "width", G_TYPE_INT, 320, "height", G_TYPE_INT, 240,
                                        "framerate", GST_TYPE_FRACTION, 30, 1, NULL), NULL);
-    gst_bin_add_many (GST_BIN (pipeline), videotestsrc, filtercaps, debuger, appsink, NULL);
-    gst_element_link_many (videotestsrc, filtercaps, debuger, appsink, NULL);
-
-    /* setup debuger */
-    g_object_set (G_OBJECT (debuger), "type", 0, "id", 187, "class", "boy", "prob", 0.876, NULL);
+    gst_bin_add_many (GST_BIN (pipeline), videotestsrc, filtercaps, adsetclassification, appsink, NULL);
+    gst_element_link_many (videotestsrc, filtercaps, adsetclassification, appsink, NULL);
 
     /* setup appsink */
     g_object_set (G_OBJECT(appsink), "emit-signals", TRUE, NULL);

@@ -1,5 +1,5 @@
 //**
-//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetobjectdetection ! admetadrawer ! videoconvert ! ximagesink
+//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetobjectdetection ! draw_roi ! videoconvert ! ximagesink
 //**
 
 #ifdef HAVE_CONFIG_H
@@ -18,7 +18,8 @@
 #include <string>
 #include <stdlib.h> // include random value function
 #include <time.h>   // include time
-#include "gstadmeta.h" // include gstadmeta.h for retrieving the inference results
+#include <gstadroi_frame.h> // include gstadroi_frame.h for retrieving the inference results
+#include <gstadroi_batch.h> // include gstadroi_batch.h for retrieving the inference results
 
 #define PLUGIN_NAME "adsetobjectdetection"
 
@@ -63,7 +64,7 @@ static void ad_set_object_detection_get_property(GObject *object, guint property
 static void ad_set_object_detection_dispose(GObject *object);
 static void ad_set_object_detection_finalize(GObject *object);
 static GstFlowReturn ad_set_object_detection_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame);
-static void setObjectDetectionData(GstBuffer* buffer);
+static void setObjectDetectionData(GstBuffer* buffer, GstPad *pad);
 
 static void
 ad_set_object_detection_class_init(AdSetObjectDetectionClass *klass)
@@ -167,51 +168,45 @@ ad_set_object_detection_transform_frame_ip(GstVideoFilter *filter,
   gst_buffer_map(frame->buffer, &info, GST_MAP_READ);
   
   // Set object detection
-  setObjectDetectionData(frame->buffer);
+  setObjectDetectionData(frame->buffer, filter->element.sinkpad);
 
   gst_buffer_unmap(frame->buffer, &info);
   return GST_FLOW_OK;
 }
 
 static void 
-setObjectDetectionData(GstBuffer* buffer)
+setObjectDetectionData(GstBuffer* buffer, GstPad *pad)
 {
-    gpointer state = NULL;
-    GstAdBatchMeta* meta;
-    const GstMetaInfo* info = GST_AD_BATCH_META_INFO;
-    meta = (GstAdBatchMeta *)gst_buffer_add_meta(buffer, info, &state);
-        
-    bool frame_exist = meta->batch.frames.size() > 0 ? true : false;
-    if(!frame_exist)
+    auto *f_meta = gst_buffer_acquire_adroi_frame_meta(buffer, pad);
+    if (f_meta == nullptr) 
     {
-        VideoFrameData frame_info;
-	std::vector<adlink::ai::DetectionBoxResult> arr;
+        GST_ERROR("Can not get adlink ROI frame metadata");
+        return;
+    }
+    
+    auto *b_meta = gst_buffer_acquire_adroi_batch_meta(buffer);
+    if (b_meta == nullptr)
+    {
+        GST_ERROR("Can not acquire adlink ROI batch metadata");
+        return;
+    }
+    
+    auto qrs = f_meta->frame->query("//");
+    if(qrs[0].rois.size() > 0)
+    {
         std::vector<std::string> labels = {"water bottle", "camera", "chair", "person", "slipper"};
-	std::vector<adlink::ai::DetectionBoxResult> random_boxes;
         srand( time(NULL) );
-
-	// Generate 5 random dummy boxes here
-        for ( int i = 0 ; i < 5 ; i++ )
-	{
-            adlink::ai::DetectionBoxResult temp_box;
-	    temp_box.obj_id = i+1;
-	    temp_box.obj_label = labels[i];
-	    temp_box.prob = (double)( rand() % 1000 )/1000;
-            temp_box.x1 = (double)( rand() % 3 + 1 )/10;	// 0.1~0.3
-            temp_box.x2 = (double)( rand() % 3 + 7 )/10;	// 0.7~0.9
-            temp_box.y1 = (double)( rand() % 3 + 1 )/10;	// 0.1~0.3
-            temp_box.y2 = (double)( rand() % 3 + 7 )/10;	// 0.7~0.9
-	    random_boxes.push_back(temp_box);
-	}
-
-        frame_info.stream_id = " ";
-	frame_info.width = 640;
-        frame_info.height = 480;
-        frame_info.depth = 0;
-        frame_info.channels = 3;
-        frame_info.device_idx = 0;
-        frame_info.detection_results.push_back(random_boxes[rand()%5]);
-	meta->batch.frames.push_back(frame_info);
+        int index = rand() % labels.size();
+        
+        float prob = (float)( rand() % 1000 )/1000;
+        float x1 = (float)( rand() % 3 + 1 )/10;	// 0.1~0.3
+        float x2 = (float)( rand() % 3 + 7 )/10;	// 0.7~0.9
+        float y1 = (float)( rand() % 3 + 1 )/10;	// 0.1~0.3
+        float y2 = (float)( rand() % 3 + 7 )/10;	// 0.7~0.9
+        
+        std::shared_ptr<ROI> obj_box = adroi_new_box("sample-engine", "", prob, x1, y1, x2, y2);
+        obj_box->add_classification("sample-engine", "", prob, labels[index], index);
+        qrs[0].rois[0]->add_roi(obj_box);
     }
 }
 
