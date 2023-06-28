@@ -1,5 +1,5 @@
 //**
-//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetclassification ! draw_roi ! adgetclassification ! videoconvert ! ximagesink
+//   gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! adsetclassification ! adroi_draw ! adgetclassification ! videoconvert ! ximagesink
 //**
 
 #ifdef HAVE_CONFIG_H

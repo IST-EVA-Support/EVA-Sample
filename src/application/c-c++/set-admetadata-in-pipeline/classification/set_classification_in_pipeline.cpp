@@ -1,5 +1,5 @@
 // **
-// Demo senario: appsrc ! draw_roi ! videoconvert ! ximagesink
+// Demo senario: appsrc ! adroi_draw ! videoconvert ! ximagesink
 // 
 // This example only show how to feed frame data to appsrc and set classifications to adlink metadata version 2.
 // So this example does not deal with any other detail concern about snchronize or other tasks.
@@ -95,8 +95,7 @@ static void establish_thread_pipeline()
     /* setup pipeline */
     pipeline = gst_pipeline_new ("pipeline");
     appsrc = gst_element_factory_make ("appsrc", "appsrc");
-    drawer = gst_element_factory_make("draw_roi", "drawer");
-//     g_object_set (drawer, "showlabel", true, NULL);
+    drawer = gst_element_factory_make("adroi_draw", "drawer");
     videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
     ximagesink = gst_element_factory_make("ximagesink", "ximagesink");
 
