@@ -1,5 +1,5 @@
 """
-    gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! classifier_sample ! admetadrawer ! videoconvert ! ximagesink
+    gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! classifier_sample ! adroi_draw ! videoconvert ! ximagesink
 """
 
 import ctypes
@@ -7,7 +7,8 @@ import numpy as np
 import random
 import time
 import gst_helper
-import gst_admeta as admeta
+#import gst_admeta as admeta
+import adroi
 from gi.repository import Gst, GObject, GstVideo
 
 
@@ -69,25 +70,33 @@ class ClassifierSamplePy(Gst.Element):
       return self.srcpad.push_event(event)
 
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
-      ##################
-      #     BEGINE     #
-      ##################
+      # initial related meta
+      f_meta = adroi.gst_buffer_acquire_adroi_frame_meta(hash(buff), hash(pad))
+      if f_meta is None:
+          print("Can not get adlink ROI frame metadata")
+          return self.srcpad.push(buff)
       
+      b_meta = adroi.gst_buffer_acquire_adroi_batch_meta(hash(buff));
+      if b_meta is None:
+          print("Can not get adlink ROI batch metadata")
+          return self.srcpad.push(buff)
+      
+      qrs = f_meta.frame.query('//')
+      if qrs is None or len(qrs) == 0:
+          print("query is empty from frame meta in classifier_sample.")
+          return self.srcpad.push(buff)
+      
+      # generate reandom data, Change random data every self.duration time
       cls = []
-      # Change random data every self.duration time
       if time.time() - self.time > self.duration:
           self.class_id = random.randrange(len(self.labels))
           self.class_prob = random.uniform(0, 1)
           self.time = time.time()
       
-      cls.append(admeta._Classification(self.class_id, '', self.labels[self.class_id], self.class_prob))
+      # add data
+      if len(qrs[0].rois) > 0:
+          qrs[0].rois[0].add_classification('sample-engine', '', self.class_prob, self.labels[self.class_id], self.class_id)
       
-      ##################
-      #      END       #
-      ##################
-      
-      # Set data into admetadata
-      admeta.set_classification(buff, pad, cls)
       return self.srcpad.push(buff)
 
     def chainlistfunc(self, pad: Gst.Pad, parent, list: Gst.BufferList) -> Gst.FlowReturn:
