@@ -1,5 +1,5 @@
 ## **
-## Demo senario: appsrc ! admetadrawer ! videoconvert ! ximagesink
+## Demo senario: appsrc ! adroi_draw ! videoconvert ! ximagesink
 ## 
 ## This example only show how to feed frame data to appsrc and set classifications to adlink metadata.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
@@ -12,7 +12,7 @@ import random
 import threading
 
 # Required to import to set ADLINK inference metadata
-import gst_admeta as admeta
+import adroi
 
 import cv2
 import gi
@@ -42,18 +42,30 @@ def need_data(src, length) -> Gst.FlowReturn:
         buf.pts = buf.dts = int(num_frames * buf.duration)
         buf.offset = num_frames * buf.duration
         num_frames += 1
-
+        
+        # init metadata
+        f_meta = adroi.gst_buffer_acquire_adroi_frame_meta(hash(buf), hash(src.pads[0]))
+        if f_meta is None:
+            print("Can not get adlink ROI frame metadata")
+        
+        b_meta = adroi.gst_buffer_acquire_adroi_batch_meta(hash(buf))
+        if b_meta is None:
+            print("Can not get adlink ROI batch metadata")
+            
+        qrs = f_meta.frame.query('//')
+        if qrs is None or len(qrs) == 0:
+            print("query is empty from frame meta in classifier_sample.")
+            return self.srcpad.push(buff)
+      
         # create random classification
         cls = []
         labels = ['water bottle', 'camera', 'chair', 'person', 'slipper', 'mouse', 'Triceratops', 'woodpecker']
         class_id = random.randrange(len(labels))
         class_prob = random.uniform(0, 1)
-        cls.append(admeta._Classification(class_id, '', labels[class_id], class_prob))
-
-        # set classification into buffer
-        pad_list = src.get_pad_template_list()
-        pad = Gst.Element.get_static_pad(src, pad_list[0].name_template)
-        admeta.set_classification(buf, pad, cls)
+        
+        # add data to buffer
+        if len(qrs[0].rois) > 0:
+            qrs[0].rois[0].add_classification('sample-engine', '', class_prob, labels[class_id], class_id)
 
         # push buffer to appsrc
         retval = src.emit('push-buffer', buf)
@@ -92,9 +104,8 @@ def establish_pipeline(pipeline, pipeline_elements):
         pipeline_elements[i].link(pipeline_elements[i + 1])
 
 def establish_thread_pipeline():
-
     print('Start establish thread pipeline.')
-
+    
     # Initialize GStreamer
     Gst.init(sys.argv)
 
@@ -108,8 +119,8 @@ def establish_thread_pipeline():
     src.connect('need-data', need_data)
     src.connect('enough-data', enough_data)
     
-    ## element: admetadrawer
-    drawer = Gst.ElementFactory.make("admetadrawer", "drawer")
+    ## element: addraw_roi
+    drawer = Gst.ElementFactory.make("adroi_draw", "drawer")
 
     ## element: videoconvert
     videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
@@ -134,7 +145,7 @@ def establish_thread_pipeline():
     bus.connect("message", on_message, loop)
 
     try:
-        print("Start to run the pipeline in thread.\n")
+        print("Start to run the pipeline in thread.")
         loop.run()
     except Exception:
         traceback.print_exc()
@@ -143,7 +154,7 @@ def establish_thread_pipeline():
     # Stop Pipeline
     pipeline.set_state(Gst.State.NULL)
     del pipeline
-    print('pipeline stopped.\n')
+    print('pipeline stopped.')
 
 if __name__ == '__main__':
 
@@ -168,10 +179,13 @@ if __name__ == '__main__':
         grabBuffer.put(frame)
         
         time.sleep(0.05)
+        
+        if not pipthread.is_alive():
+            break;
 
     cap.release()
     cv2.destroyAllWindows()
 
     pipthread.join()
-    print('main thread end.\n')
+    print('main thread end.')
 

@@ -1,5 +1,5 @@
 ## **
-## Demo senario: appsrc ! admetadrawer ! videoconvert ! ximagesink
+## Demo senario: appsrc ! adroi_draw ! videoconvert ! ximagesink
 ## 
 ## This example only show how to feed frame data to appsrc and set object detections to adlink metadata.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
@@ -12,7 +12,8 @@ import random
 import threading
 
 # Required to import to set ADLINK inference metadata
-import gst_admeta as admeta
+#import gst_admeta as admeta
+import adroi
 
 import cv2
 import gi
@@ -43,23 +44,51 @@ def need_data(src, length) -> Gst.FlowReturn:
         buf.offset = num_frames * buf.duration
         num_frames += 1
 
-        # create random object detection
-        random_box = []
-        labels = ['water bottle', 'camera', 'chair', 'person', 'slipper']
-        i = random.randrange(0, 5)
-        obj_id = i
-        obj_label = labels[i]
-        prob = random.uniform(0, 1)
-        x1 = random.randrange(1, 4)/10	# 0.1~0.3
-        x2 = random.randrange(7, 10)/10	# 0.7~0.9
-        y1 = random.randrange(1, 4)/10	# 0.1~0.3
-        y2 = random.randrange(7, 10)/10	# 0.7~0.9
-        random_box.append(admeta._DetectionBox(obj_id, obj_label, 0, '', x1, y1, x2, y2, prob, ''))
+        # init metadata
+        f_meta = adroi.gst_buffer_acquire_adroi_frame_meta(hash(buf), hash(src.pads[0]))
+        if f_meta is None:
+            print("Can not get adlink ROI frame metadata")
+        
+        b_meta = adroi.gst_buffer_acquire_adroi_batch_meta(hash(buf))
+        if b_meta is None:
+            print("Can not get adlink ROI batch metadata")
+            
+        qrs = f_meta.frame.query('//')
+        if qrs is None or len(qrs) == 0:
+            print("query is empty from frame meta in classifier_sample.")
+            return self.srcpad.push(buff)
+        
+        # generate reandom data
+        labels = ['water bottle', 'camera', 'chair', 'person', 'slipper', 'mouse', 'Triceratops', 'woodpecker']
+        class_id = random.randrange(len(labels))
+        class_prob = random.uniform(0, 1)
+        x1 = (random.uniform(0, 10) % 3 + 1) / 10
+        x2 = (random.uniform(0, 10) % 3 + 7) / 10
+        y1 = (random.uniform(0, 10) % 3 + 1) / 10
+        y2 = (random.uniform(0, 10) % 3 + 7) / 10
+        
+        # add data to buffer
+        obj_box = adroi.new_box("sample-engine", "", class_prob, x1, y1, x2, y2)
+        obj_box.add_classification("sample-engine", "", class_prob, labels[class_id], class_id)
+        qrs[0].rois[0].add_roi(obj_box)
+        
+        ## create random object detection
+        #random_box = []
+        #labels = ['water bottle', 'camera', 'chair', 'person', 'slipper']
+        #i = random.randrange(0, 5)
+        #obj_id = i
+        #obj_label = labels[i]
+        #prob = random.uniform(0, 1)
+        #x1 = random.randrange(1, 4)/10	# 0.1~0.3
+        #x2 = random.randrange(7, 10)/10	# 0.7~0.9
+        #y1 = random.randrange(1, 4)/10	# 0.1~0.3
+        #y2 = random.randrange(7, 10)/10	# 0.7~0.9
+        #random_box.append(admeta._DetectionBox(obj_id, obj_label, 0, '', x1, y1, x2, y2, prob, ''))
 
-        # set random object detection into buffer
-        pad_list = src.get_pad_template_list()
-        pad = Gst.Element.get_static_pad(src, pad_list[0].name_template)
-        admeta.set_detection_box(buf, pad, random_box)
+        ## set random object detection into buffer
+        #pad_list = src.get_pad_template_list()
+        #pad = Gst.Element.get_static_pad(src, pad_list[0].name_template)
+        #admeta.set_detection_box(buf, pad, random_box)
 
         # push buffer to appsrc
         retval = src.emit('push-buffer', buf)
@@ -115,7 +144,7 @@ def establish_thread_pipeline():
     src.connect('enough-data', enough_data)
     
     ## element: admetadrawer
-    drawer = Gst.ElementFactory.make("admetadrawer", "drawer")
+    drawer = Gst.ElementFactory.make("adroi_draw", "drawer")
 
     ## element: videoconvert
     videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
@@ -174,6 +203,9 @@ if __name__ == '__main__':
         grabBuffer.put(frame)
         
         time.sleep(0.05)
+        
+        if not pipthread.is_alive():
+            break;
 
     cap.release()
     cv2.destroyAllWindows()

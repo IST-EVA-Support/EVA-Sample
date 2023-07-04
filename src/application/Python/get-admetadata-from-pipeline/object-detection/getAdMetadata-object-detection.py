@@ -1,6 +1,6 @@
 ## **
 ## Demo senario: 
-## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! videoconvert ! admetadebuger type=1 id=187 class=boy prob=0.876 x1=0.1 y1=0.2 x2=0.3 y2=0.4 ! appsink
+## gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! videoconvert ! detection_sample ! appsink
 
 ## This example only show how to get adlink metadata from appsink.
 ## So this example does not deal with any other detail concern about snchronize or other tasks.
@@ -11,7 +11,7 @@ import time
 import numpy
 
 # Required to import to get ADLINK inference metadata
-import gst_admeta as admeta
+import adroi
 
 import cv2
 import gi
@@ -45,18 +45,20 @@ def new_sample(sink, data) -> Gst.FlowReturn:
     
     # get image data and save as bmp file
     arr = extract_data(sample)
-    cv2.imwrite("a.bmp", arr.copy())
+    #cv2.imwrite("a.bmp", arr.copy())
     
     # get detection inference result
-    buf = sample.get_buffer()
-    boxes = admeta.get_detection_box(buf,0)
+    qrs = adroi.gst_buffer_adroi_query(hash(sample.get_buffer()), '//sample-engine')
+    if qrs is None or len(qrs) == 0:
+        print("query is empty from frame meta in get classification.")
+        return self.srcpad.push(buff)
     
-    with boxes as det_box :
-        if det_box is not None :
-            for box in det_box:                
-                print('Detection result: prob={:.3f}, coordinate=({:.2f},{:.2f}) to ({:.2f},{:.2f})), Index = {}, Label = {}'.format(box.prob,box.x1,box.y1,box.x2, box.y2, box.obj_id, box.obj_label.decode("utf-8").strip()))
-        else:
-            print("None")
+    for roi in qrs[0].rois:
+        if roi.category == 'box':
+            box = roi.to_box()
+            x1, y1, x2, y2 = box.x1, box.y1, box.x2, box.y2
+            labelInfo = box.datas[0].to_classification()
+            print('Detection result: prob={:.3f}, coordinate=({:.2f},{:.2f}) to ({:.2f},{:.2f})), Index = {}, Label = {}'.format(labelInfo.confidence, x1, y1, x2, y2, labelInfo.label_id, labelInfo.label))
             
     time.sleep(0.01)
     return Gst.FlowReturn.OK
@@ -104,16 +106,8 @@ if __name__ == '__main__':
     ## element: videoconvert
     videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
     
-    ## element: admetadebuger
-    debuger = Gst.ElementFactory.make("admetadebuger", "debuger")
-    debuger.set_property("type", 1)
-    debuger.set_property("id", 187)
-    debuger.set_property("class", "boy")
-    debuger.set_property("prob", 0.876)
-    debuger.set_property("x1", 0.1)
-    debuger.set_property("y1", 0.2)
-    debuger.set_property("x2", 0.3)
-    debuger.set_property("y2", 0.4)
+    ## element: detection_sample
+    set_object = Gst.ElementFactory.make("detection_sample", "detection_sample")
     
     ## element: appsink
     sink = Gst.ElementFactory.make("appsink", "sink")
@@ -124,7 +118,7 @@ if __name__ == '__main__':
     pipeline = Gst.Pipeline().new("test-pipeline")
     
     # Build the pipeline
-    pipeline_elements = [src, filtercaps, videoconvert, debuger, sink]
+    pipeline_elements = [src, filtercaps, videoconvert, set_object, sink]
     establish_pipeline(pipeline, pipeline_elements)
 
     # Start pipeline
