@@ -1,13 +1,13 @@
 """
-    gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! detection_sample ! admetadrawer ! videoconvert ! ximagesink
+    gst-launch-1.0 videotestsrc ! video/x-raw, width=640, height=480 ! detection_sample ! adroi_draw ! videoconvert ! ximagesink
 """
 
 import ctypes
 import numpy as np
-from random import random as rand, randint as rint
+import random
 import time
 import gst_helper
-import gst_admeta as admeta
+import adroi
 
 from gi.repository import Gst, GObject, GstVideo
 
@@ -18,25 +18,6 @@ def gst_video_caps_make(fmt):
     "width = " + GstVideo.VIDEO_SIZE_RANGE + ", "\
     "height = " + GstVideo.VIDEO_SIZE_RANGE + ", "\
     "framerate = " + GstVideo.VIDEO_FPS_RANGE
-
-
-BOX_NUM = 5
-DUMMY_BOXS = [[rand(), rand(), rand(), rand()] for i in range(BOX_NUM)]
-def parse_inference_data_to_boxs(*data):
-  # Generate dummy box here, please implement your own parse algorithm with input data
-  boxs = []
-  for b in DUMMY_BOXS:
-    for j in range(len(b)):
-      b[j] += 0.01 if rint(0, 1) == 0 else -0.01
-      b[j] = max(0, b[j])
-      b[j] = min(1, b[j])
-
-    boxs.append((max(0, min(b[0], b[1])),
-                 max(0, min(b[2], b[3])),
-                 min(1, max(b[0], b[1])),
-                 min(1, max(b[2], b[3]))))
-
-  return boxs
 
 class DetectionSamplePy(Gst.Element):
 
@@ -65,9 +46,15 @@ class DetectionSamplePy(Gst.Element):
     }
 
     def __init__(self):
-      self.boxes = parse_inference_data_to_boxs()
+      self.labels = ['water bottle', 'camera', 'chair', 'person', 'slipper', 'mouse', 'Triceratops', 'woodpecker']
       self.duration = 2
       self.time = time.time()
+      self.class_id = 0
+      self.class_prob = 0.5
+      self.x1 = 0.1
+      self.x2 = 0.5
+      self.y1 = 0.1
+      self.y2 = 0.5
       
       super(DetectionSamplePy, self).__init__()
 
@@ -90,29 +77,36 @@ class DetectionSamplePy(Gst.Element):
       return self.srcpad.push_event(event)
 
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
-      ##################
-      #     BEGINE     #
-      ##################
-
-      arr = []
-      # Change random data every self.duration time
+      # initial related meta
+      f_meta = adroi.gst_buffer_acquire_adroi_frame_meta(hash(buff), hash(pad))
+      if f_meta is None:
+          print("Can not get adlink ROI frame metadata")
+          return self.srcpad.push(buff)
+      
+      b_meta = adroi.gst_buffer_acquire_adroi_batch_meta(hash(buff));
+      if b_meta is None:
+          print("Can not get adlink ROI batch metadata")
+          return self.srcpad.push(buff)
+      
+      qrs = f_meta.frame.query('//')
+      if qrs is None or len(qrs) == 0:
+          print("query is empty from frame meta in classifier_sample.")
+          return self.srcpad.push(buff)
+      
+      # generate reandom data, Change random data every self.duration time
       if time.time() - self.time > self.duration:
-          self.boxes = parse_inference_data_to_boxs()
+          self.class_id = random.randrange(len(self.labels))
+          self.class_prob = random.uniform(0, 1)
+          self.x1 = (random.uniform(0, 10) % 3 + 1) / 10
+          self.x2 = (random.uniform(0, 10) % 3 + 7) / 10
+          self.y1 = (random.uniform(0, 10) % 3 + 1) / 10
+          self.y2 = (random.uniform(0, 10) % 3 + 7) / 10
           self.time = time.time()
-          
-      for i, box in enumerate(self.boxes):
-          arr.append(admeta._DetectionBox(i, i, i, i,
-                                          box[0],
-                                          box[1],
-                                          box[2],
-                                          box[3],
-                                          rand()))
-      ##################
-      #      END       #
-      ##################
-
-      # Set data into admetadata
-      admeta.set_detection_box(buff, pad, arr)
+      
+      # add data
+      obj_box = adroi.new_box("sample-engine", "", self.class_prob, self.x1, self.y1, self.x2, self.y2)
+      obj_box.add_classification("sample-engine", "", self.class_prob, self.labels[self.class_id], self.class_id)
+      qrs[0].rois[0].add_roi(obj_box)
       
       return self.srcpad.push(buff)
       

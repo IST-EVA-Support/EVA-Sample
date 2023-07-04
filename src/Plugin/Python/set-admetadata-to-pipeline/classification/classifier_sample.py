@@ -7,7 +7,6 @@ import numpy as np
 import random
 import time
 import gst_helper
-#import gst_admeta as admeta
 import adroi
 from gi.repository import Gst, GObject, GstVideo
 

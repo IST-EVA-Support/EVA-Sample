@@ -1,6 +1,10 @@
+'''
+    gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! classifier_sample ! get_classification ! fakesink
+'''
+
 import cv2
 import gst_cv_helper
-import gst_admeta as admeta # Required to import to get ADLINK inference metadata
+import adroi
 import numpy as np
 from gi.repository import Gst, GObject, GLib, GstVideo
 
@@ -60,21 +64,21 @@ class GetClassification(Gst.Element):
         return
     
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
-      # This function will get classification result from admetadata
-      class_results = admeta.get_classification(buff, 0)
+      qrs = adroi.gst_buffer_adroi_query(hash(buff), '//')
+      if qrs is None or len(qrs) == 0:
+          print("query is empty from frame meta in get classification.")
+          return self.srcpad.push(buff)
       
-      # Iteratively retrieve the content of classification 
-      with class_results as results:
-        if results is not None:
-            for r in results:                
-                print('**********************')
-                print('classification result:')
-                print('id = ', r.index)
-                print('output = ', r.output.decode("utf-8").strip())
-                print('label = ', r.label.decode("utf-8").strip())
-                print('prob = {:.3f}'.format(r.prob))
-        else:
-            print("None")
+      for roi in qrs[0].rois:
+          if roi.category == 'box':
+              box = roi.to_box()
+              labelInfo = box.datas[0].to_classification()
+              
+              print("===== metadata version 2 in application =====")
+              print("Label ID = ", labelInfo.label_id)
+              print("Label = ", labelInfo.label)
+              print("Prob =  ", labelInfo.confidence)
+              print("=============================================")
       
       return self.srcpad.push(buff)
     

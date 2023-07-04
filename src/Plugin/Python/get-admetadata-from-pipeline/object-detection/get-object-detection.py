@@ -1,6 +1,9 @@
+'''
+    gst-launch-1.0 videotestsrc ! video/x-raw, format=BGR, width=320, height=240, framerate=30/1 ! detection_sample ! get_object_detection ! fakesink
+'''
 import cv2
 import gst_cv_helper
-import gst_admeta as admeta # Required to import to get ADLINK inference metadata
+import adroi
 import numpy as np
 from gi.repository import Gst, GObject, GLib, GstVideo
 
@@ -60,16 +63,17 @@ class GetObjectDetection(Gst.Element):
         return
     
     def chainfunc(self, pad: Gst.Pad, parent, buff: Gst.Buffer) -> Gst.FlowReturn:
-      # This function will get classification result from admetadata
-      boxes = admeta.get_detection_box(buff,0)
+      qrs = adroi.gst_buffer_adroi_query(hash(buff), '//sample-engine')
+      if qrs is None or len(qrs) == 0:
+          print("query is empty from frame meta in get classification.")
+          return self.srcpad.push(buff)
       
-      # Iteratively retrieve the content of object detected
-      with boxes as det_box :
-        if det_box is not None :
-            for box in det_box:                
-                print('Detection result: prob={:.3f}, coordinate=({:.2f},{:.2f}) to ({:.2f},{:.2f})), Index = {}, Label = {}'.format(box.prob,box.x1,box.y1,box.x2, box.y2, box.obj_id, box.obj_label.decode("utf-8").strip()))
-        else:
-            print("None")
+      for roi in qrs[0].rois:
+          if roi.category == 'box':
+              box = roi.to_box()
+              x1, y1, x2, y2 = box.x1, box.y1, box.x2, box.y2
+              labelInfo = box.datas[0].to_classification()
+              print('Detection result: prob={:.3f}, coordinate=({:.2f},{:.2f}) to ({:.2f},{:.2f})), Index = {}, Label = {}'.format(labelInfo.confidence, x1, y1, x2, y2, labelInfo.label_id, labelInfo.label))
       
       return self.srcpad.push(buff)
     
